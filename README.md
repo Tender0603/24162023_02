@@ -116,7 +116,7 @@ Xóa book xóa rating và book_author trong cùng transaction; không xóa tác 
 SiteMesh mapping dùng tên `user.jsp`/`admin.jsp` do phiên bản 3.2.1 tự thêm prefix decorators.
 
 ## Kiểm thử và nộp bài
-- `mvn clean test` / `mvn package`: 45 JUnit tests (6 regression + 39 kiểm tra Cart/COD). Profile `cart-cod-it` chạy thêm 14 test SQL Server, cần xác nhận database và cấu hình JDBC thực.
+- `mvn clean test` / `mvn package`: 61 JUnit tests (45 baseline + 16 Order History). Profile `cart-cod-it` chạy thêm 14 test SQL Server; `order-history-it` chạy cả 14 Cart/COD và 14 Order History JDBC tests, tổng 89. Cần xác nhận database và cấu hình JDBC thực.
 - Với demo đang chạy: `python -u scripts/http-smoke.py` kiểm thử HTTP thật; tạo/xóa sách tạm, tạo một tài khoản OTP tạm.
 - Sau khi chạy lại smoke test, dọn đúng tài khoản tạm bằng `sqlcmd -S '.\SQLEXPRESS' -E -C -b -i .runtime/cleanup-smoke.sql`. Lần kiểm thử bàn giao đã dọn xong.
 - Static audit: `python scripts/audit.py`. Tạo lại ZIP sau khi sửa source: `python scripts/package-submission.py`.
@@ -155,7 +155,7 @@ Regression script nhận `EXAM_BASE_URL` và `EXAM_OTP_LOG` nếu cần kiểm t
 
 ## Cart + COD — 01/10/2026
 
-Project root: **D:\24162023_02**. Giữ Java 21, Servlet 6, JSP/JSTL, SiteMesh, JDBC và SQL Server. Chưa triển khai Order History/filter UI.
+Project root: **D:\24162023_02**. Giữ Java 21, Servlet 6, JSP/JSTL, SiteMesh, JDBC và SQL Server. Order History/filter được bổ sung sau baseline Cart/COD, xem hướng dẫn bên dưới.
 
 ### Database upgrade
 
@@ -173,7 +173,7 @@ Với database mới hoàn toàn: khởi tạo bằng database.sql trước, sau
 - `cart_items`: PK `(user_id,book_id)`, quantity > 0, FK user/book. Xóa Book sẽ bỏ dòng cart của sách đó.
 - `orders`: FK user; tổng decimal(19,2); receiver phone dạng chuỗi; unique `(user_id,checkout_key)`; COD/UNPAID/NEW lúc tạo.
 - `order_items`: snapshot tên, giá, số lượng, thành tiền; xóa Book đặt `book_id=NULL`, giữ nguyên chi tiết và tổng đơn. Không cascade xóa lịch sử đơn.
-- Status hỗ trợ `NEW`, `CONFIRMED`, `PREPARING`, `SHIPPING`, `DELIVERING`, `DELIVERED`, `CANCELLED`, `RETURNED`. Model/trang kết quả đọc status từ DB; giao diện lịch sử và filter làm ở task sau.
+- Status hỗ trợ `NEW`, `CONFIRMED`, `PREPARING`, `SHIPPING`, `DELIVERING`, `DELIVERED`, `CANCELLED`, `RETURNED`. Model, trang kết quả, lịch sử và chi tiết đọc status từ DB.
 
 ### Chạy và demo
 
@@ -213,4 +213,66 @@ $env:EXAM_BASE_URL='http://127.0.0.1:18082/24162023_02'
 python -u scripts/cart-cod-smoke.py
 ```
 
-Kết quả đã thực chạy: **45 unit/regression + 14 JDBC integration = 59 JUnit tests**; **54 HTTP/DB checks Cart/COD**; **36 HTTP checks hồi quy**. Xem `VERIFICATION.md` để phân biệt kết quả hiện tại và biên bản cũ. Các file build/runtime nằm trong `target/`, `.runtime/` và đã được `.gitignore` loại trừ. Chưa init/commit/push Git.
+Kết quả baseline Cart/COD: **45 unit/regression + 14 JDBC integration = 59 JUnit tests**; **54 HTTP/DB checks Cart/COD**; **36 HTTP checks hồi quy**. Baseline đã push tại `8e75364`; thay đổi Order History hiện để review, chưa stage/commit/push. Các file build/runtime nằm trong `target/`, `.runtime/` và đã được `.gitignore` loại trừ.
+
+## Order History + Status Filter — 01/10/2026
+
+Baseline: `8e75364 feat: implement user cart and COD checkout`, branch `main`. Không cần migration; reuse `orders`, `order_items`, enum và truy vấn chi tiết của Cart/COD.
+
+- `/orders`: toàn bộ đơn của user đăng nhập, `created_at DESC, order_id DESC`.
+- `/orders?status=NEW`: lọc bằng enum và PreparedStatement; bỏ query `status` để xem **Tất cả**. Status sai/rỗng, chữ thường hoặc chuỗi SQL injection trả HTTP 400.
+- `/orders/detail?id=...`: kiểm tra `order_id` và `user_id` trong cùng truy vấn; đơn không tồn tại hoặc thuộc user khác trả 404; ID sai trả 400.
+- `/orders` và `/orders/*` dùng AuthenticationFilter hiện có. User ID chỉ lấy từ session, không nhận từ query/form. Chỉ có GET đọc dữ liệu, không có chức năng user sửa status.
+- Mỗi GET query SQL Server, không cache đơn/status trong session; response `Cache-Control: no-store`.
+- Tổng tiền lấy từ `orders.total_amount`; chi tiết lấy `book_name_snapshot`, `unit_price_snapshot`, `quantity`, `line_total`. Dùng BigDecimal; không tính lại theo Book hiện tại. FK `ON DELETE SET NULL` giữ snapshot khi xóa sách.
+- Thời điểm đặt hiển thị UTC theo `created_at` hiện có. Payment status hiển thị mã DB (`UNPAID`, `PAID`, `REFUNDED`); COD giữ nguyên.
+
+| Status | Nhãn UI |
+|---|---|
+| NEW | Đơn hàng mới |
+| CONFIRMED | Đã xác nhận |
+| PREPARING | Chuẩn bị hàng |
+| SHIPPING | Vận chuyển |
+| DELIVERING | Giao hàng |
+| DELIVERED | Đã giao |
+| CANCELLED | Đơn hàng hủy |
+| RETURNED | Đơn hàng hoàn |
+
+### Demo cho giảng viên
+
+1. Login User, tạo một đơn COD nếu chưa có; mở **Lịch sử đơn hàng** ở header.
+2. Chọn **Đơn hàng mới**, ghi lại đúng mã đơn của user.
+3. Trong SSMS chọn database `WebExam02_24162023`, mở `scripts/order-status-demo.sql`. Chạy SELECT để đối chiếu mã đơn/user.
+4. Copy riêng UPDATE `CONFIRMED`, thay `<ORDER_ID>` bằng mã vừa ghi, bỏ comment rồi execute.
+5. Refresh `/orders`: badge đổi thành **Đã xác nhận**. Filter NEW không còn đơn; filter CONFIRMED có đơn.
+6. Lặp lại PREPARING → SHIPPING → DELIVERING → DELIVERED → CANCELLED → RETURNED; refresh và chọn filter tương ứng. Đây là demo SQL trực tiếp, không phải workflow chuyển trạng thái trong app.
+7. Bấm **Xem chi tiết**, kiểm tra người nhận, snapshot items, tổng tiền và status hiện tại.
+8. Login user khác, truy cập URL chi tiết trên: nhận 404.
+
+Chạy nguyên file demo SQL chỉ SELECT, mọi UPDATE đều comment; script không được gọi khi app start.
+
+### Kiểm thử lại
+
+Sau các lệnh cấu hình Java/JDBC/Windows Authentication ở mục trên:
+
+```powershell
+mvn -B clean test
+mvn -B package
+mvn -B -Porder-history-it "-DargLine=-Djava.library.path=$authPath" test
+python scripts/audit.py
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/start-demo.ps1 -Port 18082 -OtpMode demo
+$env:EXAM_BASE_URL='http://127.0.0.1:18082/24162023_02'
+$env:CART_COD_DB_CONFIRMED='YES'
+python -u scripts/order-history-smoke.py
+python -u scripts/cart-cod-smoke.py
+```
+
+Browser automation tùy chọn dùng Chrome đã cài; Playwright chỉ là công cụ test dưới `.runtime`, không thêm framework/dependency vào WAR:
+
+```powershell
+npm install --prefix .runtime/order-browser --no-audit --no-fund playwright@1.63.0
+$env:ORDER_BROWSER='YES'
+python -u scripts/order-history-smoke.py
+```
+
+Kết quả lần này: **89 JUnit, 0 failures/errors/skipped; 77 HTTP/DB Order History (gồm browser), 54 Cart/COD, 36 HTTP regression PASS**. Không bật browser: 76 checks. Fixture tự dọn; không có đơn demo cố định từ test. Screenshot Chrome ở `.runtime/order-history-*.png` và `.runtime/order-detail.png`; xem `VERIFICATION.md` và checklist để chụp bài nộp.

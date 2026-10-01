@@ -1,5 +1,22 @@
 # Checklist chụp màn hình — Trần Hoàng Tiến Đạt / 24162023 / Đề 02
 
+## Order History + Filter — bổ sung sau baseline 8e75364
+
+Demo tại `http://localhost:18082/24162023_02`. Đăng nhập user có đơn COD; dùng SSMS chọn đúng `WebExam02_24162023`. Test tự dọn fixture nên tạo đơn demo bằng Cart/COD trước khi chụp.
+
+- [ ] Header **Lịch sử đơn hàng**, `/orders`: ALL có mã/ngày/người nhận/tổng/COD/payment/status và nút chi tiết.
+- [ ] Filter **Đơn hàng mới** active và đơn NEW.
+- [ ] SSMS SELECT order_id/user_id/status và SQL UPDATE đúng mã đơn sang CONFIRMED. Dùng template trong `scripts/order-status-demo.sql`.
+- [ ] Refresh: nhãn **Đã xác nhận**; filter NEW không còn đơn, filter CONFIRMED có đơn.
+- [ ] PREPARING / SHIPPING / DELIVERING: UPDATE → refresh → filter tương ứng.
+- [ ] DELIVERED: UI **Đã giao**, filter active.
+- [ ] CANCELLED: UI **Đơn hàng hủy**; RETURNED: UI **Đơn hàng hoàn**.
+- [ ] Detail: thời điểm, status hiện tại, COD/payment, receiver/phone/address, tên/giá snapshot, quantity/line total/tổng.
+- [ ] User khác truy cập URL detail trả 404; logout rồi mở history yêu cầu login.
+- [ ] Terminal: 89 JUnit PASS, 77 Order History HTTP/DB checks PASS; Cart/COD 54 và regression HTTP 36 PASS.
+
+Đã có ảnh automation local trong `.runtime/order-history-*.png` và `.runtime/order-detail.png`; đây là ảnh fixture, không chứa thanh địa chỉ trình duyệt. Khi nộp bài, chụp toàn màn hình trình duyệt/SSMS thật theo yêu cầu giảng viên. Không chụp session cookie, credentials hay OTP.
+
 ## Cart + COD — yêu cầu bổ sung 01/10/2026
 
 Chạy đúng project D:\24162023_02, ví dụ URL `http://localhost:18082/24162023_02`. Chụp toàn màn hình với URL/IDE/SSMS hiện rõ. Không chụp credentials hoặc OTP thật.
@@ -17,7 +34,7 @@ Chạy đúng project D:\24162023_02, ví dụ URL `http://localhost:18082/24162
 - [ ] Đăng nhập user khác không đọc được success của đơn trên.
 - [ ] Kết quả build/static audit và JDBC/HTTP tests trong terminal.
 
-Test tự động dọn fixture. Để chụp screenshot, thao tác demo thủ công tạo đơn trong database đã xác nhận. Chưa có trang Order History/filter trong đợt này.
+Test tự động dọn fixture. Để chụp screenshot, thao tác demo thủ công tạo đơn trong database đã xác nhận. Order History/filter hiện có ở phần bổ sung phía trên.
 
 Chụp **toàn màn hình**, gồm tên file/tab IDE hoặc URL trình duyệt. Mỗi câu chụp lần lượt DAO → Service → Controller → View → kết quả.
 Java root: `src/main/java/vn/edu/webexam/`. JSP root: `src/main/webapp/WEB-INF/`.

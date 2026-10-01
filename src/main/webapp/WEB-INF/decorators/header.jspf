@@ -11,6 +11,7 @@
 </c:if>
 <c:if test="${not empty sessionScope.user}">
 <a href="${pageContext.request.contextPath}/cart">Giỏ hàng</a>
+<a href="${pageContext.request.contextPath}/orders">Lịch sử đơn hàng</a>
 <span>
 <c:out value="${sessionScope.user.fullname}"/>
 </span>

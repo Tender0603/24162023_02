@@ -1,5 +1,50 @@
 # Kiểm chứng bài Web Exam 02
 
+## Order History + Filter — 01/10/2026, D:\24162023_02
+
+### Baseline và phạm vi
+
+- Trước khi sửa: `main`, clean; HEAD/local origin/main/GitHub main cùng `8e75364b98ef7590e7a59c152e9f1950697709b1`. Không amend baseline, không stage/commit/push trong task này.
+- Giữ Java 21 + Servlet 6/JSP/JSTL/SiteMesh/JDBC/SQL Server/Maven WAR. Không đổi schema, model/enum hoặc checkout logic. Reuse OrderDAO.find(userId,orderId) để kiểm tra ownership chi tiết bằng SQL.
+- List `/orders`, filter cả 8 enum, detail `/orders/detail?id=...`; xác thực qua AuthenticationFilter mapping. Không nhận userId từ request, không có API cập nhật status.
+- Mỗi GET đọc DB và trả `Cache-Control: no-store`. Status từ enum có nhãn tiếng Việt; tiền/snapshot lấy trực tiếp các cột lịch sử, không JOIN Book.
+
+### Kết quả thực chạy trên Java 21 / SQL Server / Tomcat 18082
+
+| Gate | Kết quả |
+|---|---|
+| `mvn -B clean test` | BUILD SUCCESS; 61 = 45 baseline + 16 Order History |
+| `mvn -B package` | BUILD SUCCESS; 61 tests; target/24162023_02.war |
+| `mvn -B -Porder-history-it ... test` | BUILD SUCCESS; 89 = 61 + 14 Cart/COD JDBC + 14 Order History JDBC |
+| Failures / Errors / Skipped | 0 / 0 / 0 cho mọi lần chạy Maven trên |
+| `scripts/order-history-smoke.py`, ORDER_BROWSER=YES | 77 HTTP/DB checks PASS, có Chrome headless thật |
+| `scripts/cart-cod-smoke.py` | 54 HTTP/DB checks PASS |
+| `scripts/http-smoke.py` | 36 HTTP regression checks PASS, OTP demo local |
+| `scripts/audit.py` | PASS: 47 Java chính, 6 test source, 0 vi phạm |
+
+### Bằng chứng theo yêu cầu
+
+- ALL chứa nhiều trạng thái và chỉ đơn user hiện tại; thứ tự created_at giảm dần và order_id giảm dần khi trùng timestamp. Empty state đã render.
+- Cả 8 filter đều được chạy với đơn foreign có cùng status; không trả đơn foreign. Param userId giả bị bỏ qua; truy cập chéo cả hai chiều nhận 404, không lộ receiver/phone/items/total.
+- HACK/abc/rỗng/SQL injection-like filter nhận 400; ID thiếu/sai/âm/overflow nhận 400; ID không tồn tại nhận 404. Dữ liệu trước/sau request invalid không đổi.
+- Guest bị redirect login ở history, detail và `/orders/anything`.
+- GET history và detail được so sánh toàn bộ fixture rows của orders/order_items/cart_items/books trước/sau: không mutate.
+- Snapshot tên và giá giữ nguyên sau UPDATE title/price; DELETE Book giữ history/detail và đặt book_id NULL. HTML trong receiver/address/book snapshot được escape trên JSP thật.
+- Trên cùng session: trực tiếp SQL UPDATE NEW → CONFIRMED → PREPARING → SHIPPING → DELIVERING → DELIVERED → CANCELLED → RETURNED; mỗi GET history/detail hiển thị nhãn mới. Filter mới có đơn, NEW không còn đơn sau đổi status (bao gồm DELIVERED).
+- Chrome thật dùng authenticated cookies từ HTTP login fixture, click menu/filter/detail bằng Playwright locator.click; chạy lại đủ 8 SQL UPDATE và refresh. Cross-user 404 kiểm tra cả hai context. Mobile 390px filter hoạt động; bảng chi tiết có scroll ngang theo CSS hiện tại.
+- Đã mở và kiểm tra screenshot CONFIRMED, detail, mobile. Screenshot tại `.runtime/order-history-all.png`, `.runtime/order-history-{STATUS}.png`, `.runtime/order-detail.png`, `.runtime/order-history-mobile.png` (ignored, fixture đã dọn).
+
+### Dữ liệu, logs và giới hạn
+
+- SQL Server thực: `WebExam02_24162023`, Windows Authentication. Lệnh trong sandbox gặp lỗi credentials; chạy lại được duyệt ngoài sandbox thành công. Không sửa secrets/password.
+- JDBC/HTTP chỉ sửa/xóa fixture vừa tạo. Tài khoản OTP từ regression cũ đã được dọn bằng `.runtime/cleanup-smoke.sql` của lần chạy này. Sau cleanup không còn user `history-*`; orders còn 1 như trước test, đơn sẵn có không nằm trong SQL UPDATE fixture.
+- Logs local: `.runtime/order-unit.log`, `order-package.log`, `order-integration.log`, `order-http.log`, `order-cart-regression.log`, `order-http-regression.log`; kết quả machine-readable `.runtime/order-history-results.json`, `target/surefire-reports/`.
+- Không thử SMTP thật; không thuộc task. Không phân trang lịch sử theo scope hiện tại; số lượng đơn lớn có thể cần pagination sau này. Ngày đặt giữ UTC và payment status giữ mã DB.
+- Chrome automation là test tool, không thay đổi stack ứng dụng. Cần Node/Chrome và cài Playwright local để chạy lại phần browser; JDBC/HTTP không phụ thuộc browser.
+- Demo SQL: `scripts/order-status-demo.sql`, tất cả UPDATE là comment/template; không chạy lúc startup. Hướng dẫn thao tác nằm tại README và SCREENSHOT-CHECKLIST.
+
+**STATUS: READY FOR REVIEW. Các mục Cart/COD và 24/09 bên dưới là biên bản baseline/lịch sử, không thay thế kết quả Order History ở trên.**
+
 ## Cart + COD — 01/10/2026, project D:\24162023_02
 
 ### Phạm vi và database

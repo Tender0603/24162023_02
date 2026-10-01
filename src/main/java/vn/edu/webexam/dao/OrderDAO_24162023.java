@@ -7,6 +7,28 @@ import vn.edu.webexam.model.*;
 import vn.edu.webexam.util.DBConnection_24162023;
 
 public class OrderDAO_24162023 {
+  public List<Order_24162023> findByUserId(int userId) throws SQLException {
+    return findByUserIdAndStatus(userId, null);
+  }
+
+  public List<Order_24162023> findByUserIdAndStatus(int userId, OrderStatus_24162023 status) throws SQLException {
+    String sql = "SELECT * FROM orders WHERE user_id=?"
+        + (status == null ? "" : " AND status=?") + " ORDER BY created_at DESC, order_id DESC";
+    var orders = new ArrayList<Order_24162023>();
+    try (var c = DBConnection_24162023.getConnection(); var p = c.prepareStatement(sql)) {
+      p.setInt(1, userId);
+      if (status != null) p.setString(2, status.name());
+      try (var r = p.executeQuery()) {
+        while (r.next()) orders.add(new Order_24162023(r.getLong("order_id"), r.getInt("user_id"),
+            new CheckoutForm_24162023(r.getNString("receiver_name"), r.getString("receiver_phone"), r.getNString("shipping_address")),
+            r.getBigDecimal("total_amount"), OrderStatus_24162023.valueOf(r.getString("status")),
+            r.getString("payment_method"), r.getString("payment_status"),
+            r.getTimestamp("created_at").toLocalDateTime(), List.of()));
+      }
+    }
+    return orders;
+  }
+
   public Long findIdByKey(Connection c, int userId, String key) throws SQLException {
     try (var p = c.prepareStatement("SELECT order_id FROM orders WHERE user_id=? AND checkout_key=?")) {
       p.setInt(1, userId); p.setString(2, key);
