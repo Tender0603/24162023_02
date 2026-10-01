@@ -1,0 +1,17 @@
+<%@ page pageEncoding="UTF-8" %>
+<%@ include file="cover-url.jspf" %>
+<img src="<c:out value='${coverUrl}'/>" alt="Bìa sách" loading="lazy">
+<div>
+<h3>
+<a href="${pageContext.request.contextPath}/book-detail?id=${book.bookid}">
+<c:out value="${book.title}"/>
+</a>
+</h3>
+<div class="meta">Mã ISBN: <c:out value="${book.isbn}"/>
+<br>Tác giả: <c:out value="${book.authors}"/>
+<br>Publisher: <c:out value="${book.publisher}"/>
+<br>Publisher_date: <c:out value="${book.publishDate}"/>
+<br>Quantity: <c:out value="${book.quantity}"/>
+<br>Reviews: <c:out value="${book.reviewCount}"/>
+</div>
+</div>

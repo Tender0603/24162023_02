@@ -1,0 +1,6 @@
+<%@ page pageEncoding="UTF-8" %>
+<c:url var="pageUrl" value="/home">
+<c:forEach var="other" items="${groups}">
+<c:param name="page_${other.authorId}" value="${other.authorId == group.authorId ? targetPage : other.page}"/>
+</c:forEach>
+</c:url>

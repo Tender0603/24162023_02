@@ -1,0 +1,12 @@
+<%@ page pageEncoding="UTF-8" %>
+<c:choose>
+<c:when test="${empty book.coverImage}">
+<c:url var="coverUrl" value="/assets/cover.svg"/>
+</c:when>
+<c:when test="${book.coverImage.startsWith('http://') or book.coverImage.startsWith('https://')}">
+<c:set var="coverUrl" value="${book.coverImage}"/>
+</c:when>
+<c:otherwise>
+<c:url var="coverUrl" value="/${book.coverImage}"/>
+</c:otherwise>
+</c:choose>
